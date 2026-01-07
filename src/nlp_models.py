@@ -5,7 +5,7 @@ import spacy
 
 # A robust mapping for demonyms and common variations
 DEMONYM_MAP = {
-    "Russian": "Russia", "Soviets": "Russia", "Soviet": "Russia", "USSR": "Russia",
+    "Russian": "Russia", "Soviets": "Russia", "Soviet": "Russia", "USSR": "Russia", "Russian Federation": "Russia",
     "American": "USA", "Americans": "USA", "U.S.": "USA", "US": "USA", "United States": "USA",
     "Ukrainian": "Ukraine", "Ukrainians": "Ukraine",
     "Chinese": "China",
@@ -33,6 +33,8 @@ for c in pycountry.countries:
 
 # Add missing common aliases explicitly
 VALID_COUNTRIES.update(["Russia", "USA", "UK", "Syria", "Iran", "Turkey", "Vietnam", "South Korea", "North Korea"])
+
+VALID_COUNTRIES.remove('Russian Federation')  # Avoid confusion with demonym
 
 VALID_LANGUAGES = set([l.name for l in pycountry.languages])
 
@@ -113,3 +115,117 @@ def load_zero_shot_pipeline(model_name="facebook/bart-large-mnli", device=None):
     if device is None:
         device = 0 if torch.cuda.is_available() else -1
     return pipeline("zero-shot-classification", model=model_name, device=device)
+
+
+def get_hf_model_metadata(pipeline_obj):
+    """
+    Extracts versioning information from a Hugging Face pipeline for reporting.
+    """
+    model = pipeline_obj.model
+    return {
+        "model_name_or_path": getattr(model.config, "_name_or_path", "unknown"),
+        "model_architecture": model.config.architectures[0] if model.config.architectures else "unknown",
+        "transformers_version": getattr(model.config, "transformers_version", "unknown"),
+        # specific commit hash if available (often requires offline=False or specific loading)
+        "commit_hash": getattr(model.config, "_commit_hash", "local_files")
+    }
+
+
+def extract_context_sentences(texts, dates, target_terms, spacy_model_name="en_core_web_sm"):
+    """
+    Splits texts into sentences and filters for target terms, preserving dates.
+
+    Args:
+        texts (list): List of full transcript strings.
+        dates (list): List of date strings/objects corresponding to texts.
+        target_terms (list): List of terms to look for.
+    """
+    results = []
+
+    try:
+        if not spacy.util.is_package(spacy_model_name):
+            spacy.cli.download(spacy_model_name)
+        nlp = spacy.load(spacy_model_name)
+        nlp.disable_pipes(["ner", "tagger", "attribute_ruler", "lemmatizer"])
+    except Exception as e:
+        print(f"Warning: Could not load spaCy model. Using fallback. {e}")
+        nlp = None
+
+    normalized_targets = [t.lower() for t in target_terms]
+
+    # Ensure dates align with texts
+    if len(dates) != len(texts):
+        print("Warning: Date list length does not match text list length.")
+
+    for i, text in enumerate(texts):
+        if not isinstance(text, str):
+            continue
+
+        current_date = dates[i] if i < len(dates) else "Unknown"
+
+        if nlp:
+            nlp.max_length = len(text) + 1000
+            doc = nlp(text)
+            sentences = [sent.text.strip() for sent in doc.sents]
+        else:
+            sentences = text.replace('!', '.').replace('?', '.').split('.')
+
+        for sent in sentences:
+            sent_lower = sent.lower()
+            for target in normalized_targets:
+                if target in sent_lower:
+                    results.append({
+                        "source_doc_id": i,
+                        "date": current_date,  # NEW FIELD
+                        "sentence": sent,
+                        "found_term": target  # Acts as "Country" identifier
+                    })
+                    break
+
+    return results
+
+
+def classify_sentences_batch(pipeline_obj, sentences, candidate_labels, multi_label=False):
+    """
+    Runs zero-shot classification on a batch of sentences.
+    """
+    results = pipeline_obj(sentences, candidate_labels, multi_label=multi_label)
+
+    # Normalize output to a list if single input
+    if not isinstance(results, list):
+        results = [results]
+
+    simplified_results = []
+    for res in results:
+        simplified_results.append({
+            "sequence": res['sequence'],
+            "top_label": res['labels'][0],
+            "top_score": res['scores'][0],
+            "all_scores": dict(zip(res['labels'], res['scores']))
+        })
+    return simplified_results
+
+
+def get_accompanying_terms(text, aliases):
+    """
+    Uses spaCy dependency parsing to find adjectives, compounds, and appositional
+    modifiers for any token matching the target entity aliases.
+    """
+    doc = nlp(text)
+    accompanying_terms = []
+
+    # Define dependency types that provide descriptive context
+    DESCRIPTIVE_DEPS = ["amod", "compound", "appos", "poss"]
+
+    for token in doc:
+        # Check if the token or its lemma matches any of the target aliases
+        if token.text in aliases or token.lemma_ in aliases:
+            # Check the token's children for descriptive dependencies
+            for child in token.children:
+                if child.dep_ in DESCRIPTIVE_DEPS:
+                    # Capture the term and normalize it
+                    term = child.text.lower().replace("'", "").strip()
+                    if term:
+                        accompanying_terms.append(term)
+
+    return accompanying_terms
