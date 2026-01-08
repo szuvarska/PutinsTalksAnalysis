@@ -206,11 +206,20 @@ def classify_sentences_batch(pipeline_obj, sentences, candidate_labels, multi_la
     return simplified_results
 
 
-def get_accompanying_terms(text, aliases):
+def get_accompanying_terms(text, aliases, spacy_model_name="en_core_web_sm"):
     """
     Uses spaCy dependency parsing to find adjectives, compounds, and appositional
     modifiers for any token matching the target entity aliases.
     """
+    try:
+        if not spacy.util.is_package(spacy_model_name):
+            spacy.cli.download(spacy_model_name)
+        nlp = spacy.load(spacy_model_name)
+        nlp.disable_pipes(["ner", "tagger", "attribute_ruler", "lemmatizer"])
+    except Exception as e:
+        print(f"Warning: Could not load spaCy model. Using fallback. {e}")
+        nlp = None
+
     doc = nlp(text)
     accompanying_terms = []
 
