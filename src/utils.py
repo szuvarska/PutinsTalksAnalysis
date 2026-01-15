@@ -3,7 +3,7 @@ import tracemalloc
 import logging
 import random
 import numpy as np
-import torch
+# import torch
 import os
 import json
 from datetime import datetime
@@ -47,9 +47,9 @@ def set_global_seed(seed=42):
 class ExperimentLogger:
     """Logs experiment details to a JSON file."""
 
-    def __init__(self, log_dir="reports"):
+    def __init__(self, log_dir="reports", experiment_name="experiment"):
         os.makedirs(log_dir, exist_ok=True)
-        self.log_file = os.path.join(log_dir, f"experiment_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        self.log_file = os.path.join(log_dir, f"{experiment_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
         self.log_data = {
             "timestamp": datetime.now().isoformat(),
             "operations": []
