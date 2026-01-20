@@ -14,7 +14,7 @@
             "duration_sec": 2241.6531031131744,
             "memory_mb": 1.838813,
             "metrics": {
-                "speeches": 9335
+                "speeches": 5079
             }
         },
         {
@@ -42,23 +42,23 @@
             }
         },
         {
-            "name": "LLM Democracy Counting ALL",
+            "name": "LLM Democracy Counting (keyword only)",
             "duration_sec": 2219.877982854843,
             "memory_mb": 1.515357,
             "metrics": {
-                "speeches": 9335
+                "speeches": 5079
             }
         },
         {
-            "name": "LLM Democracy Counting ALL",
+            "name": "LLM Democracy Counting (keyword + topic)",
             "duration_sec": 2555.170066833496,
             "memory_mb": 1.511726,
             "metrics": {
-                "speeches": 9335
+                "speeches": 5079
             }
         },
         {
-            "name": "LLM NATO Counting ALL",
+            "name": "LLM NATO Counting (keyword + topic)",
             "duration_sec": 4074.4264118671417,
             "memory_mb": 1.800574,
             "metrics": {
