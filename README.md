@@ -49,6 +49,12 @@ pip install -r requirements.txt
 
 All analyses are implemented in Jupyter notebooks and can be run sequentially.
 
+## Data
+The dataset consists of transcribed speeches by Vladimir Putin, along with metadata including dates and tags.
+Dataset: https://drive.google.com/file/d/1Of3e_pz-01IqslaIk6pTlVtPn7p4zx9z/view
+Questions: https://github.com/grzegorzZ1/masters_2025_nlp/tree/initial_steps
+Downloaded data is stored in the `data/` directory.
+
 
 ## Reproducibility
 
